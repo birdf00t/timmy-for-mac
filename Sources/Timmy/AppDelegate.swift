@@ -230,7 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
 
         let status = NSMenuItem(
-            title: monitor.isRunning ? "동작 중" : "손쉬운 사용 권한 대기 중…",
+            title: monitor.isRunning ? "Running" : "Waiting for Accessibility Permission…",
             action: monitor.isRunning ? nil : #selector(openAccessibilitySettings),
             keyEquivalent: "")
         status.target = self
@@ -238,12 +238,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(status)
         menu.addItem(.separator())
 
-        let lock = NSMenuItem(title: "위치 고정", action: #selector(toggleLock), keyEquivalent: "")
+        let lock = NSMenuItem(title: "Lock Position", action: #selector(toggleLock), keyEquivalent: "")
         lock.target = self
         lock.state = window.isLocked ? .on : .off
         menu.addItem(lock)
 
-        let sizeItem = NSMenuItem(title: "크기", action: nil, keyEquivalent: "")
+        let sizeItem = NSMenuItem(title: "Size", action: nil, keyEquivalent: "")
         let sizeMenu = NSMenu()
         for value in [0.6, 0.75, 1.0, 1.25, 1.5] {
             let item = NSMenuItem(title: "\(Int(value * 100))%",
@@ -256,12 +256,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sizeItem.submenu = sizeMenu
         menu.addItem(sizeItem)
 
-        let reset = NSMenuItem(title: "위치 초기화", action: #selector(resetPosition), keyEquivalent: "")
+        let reset = NSMenuItem(title: "Reset Position", action: #selector(resetPosition), keyEquivalent: "")
         reset.target = self
         menu.addItem(reset)
 
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "종료", action: #selector(quit), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
     }
