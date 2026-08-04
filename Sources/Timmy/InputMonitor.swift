@@ -20,6 +20,11 @@ final class InputMonitor {
     var onCursorMoved: ((CGPoint) -> Void)?             // 화면 전역 좌표 (좌하단 원점)
     var onScroll: ((Double) -> Void)?                    // 세로 스크롤 양 (부호가 방향)
 
+    /// 키를 하나 눌렀을 때. 타이핑 속도를 재는 데 쓴다.
+    /// 손 판정과 따로 두는 이유 — 앞 키를 떼기 전에 다음 키를 누르면
+    /// "왼손 눌림" 같은 상태값은 안 바뀌어서 빠른 타이핑을 놓친다.
+    var onKeystroke: (() -> Void)?
+
     private(set) var isRunning = false
 
     private var tap: CFMachPort?
@@ -127,6 +132,7 @@ final class InputMonitor {
         case .keyDown:
             // 키 반복(auto-repeat)은 무시한다. 누르고 있는 동안 발이 내려가 있는 편이 자연스럽다.
             if event.getIntegerValueField(.keyboardEventAutorepeat) != 0 { return }
+            onKeystroke?()
             keyChanged(event.getIntegerValueField(.keyboardEventKeycode), down: true)
 
         case .keyUp:

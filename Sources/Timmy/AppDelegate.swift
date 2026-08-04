@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var window: OverlayWindow!
     private var mascotView: MascotView!
     private let monitor = InputMonitor()
+    private let face = FaceMonitor()
     private var statusItem: NSStatusItem!
     private var permissionPoll: Timer?
 
@@ -19,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         static let originY = "originY"
         static let scale = "scale"
         static let locked = "locked"
+        static let camera = "camera"
     }
 
     private var scale: CGFloat {
@@ -46,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         monitor.stop()
+        face.stop()
     }
 
     // MARK: - 창
@@ -112,6 +115,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.mascotView.leftKeyDown = left
             self?.mascotView.rightKeyDown = right
         }
+        monitor.onKeystroke = { [weak self] in
+            self?.mascotView.recordKeystroke()
+        }
         monitor.onMouseButtons = { [weak self] buttons in
             self?.mascotView.mouseButtons = buttons
         }
@@ -130,6 +136,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 x: min(max((point.x - self.screenUnion.minX) / self.screenUnion.width, 0), 1),
                 y: min(max((point.y - self.screenUnion.minY) / self.screenUnion.height, 0), 1))
 
+            self.mascotView.cursorGaze = self.gazeDirection(toward: point)
+
             // 창이 클릭을 통과시키므로 마우스 진입 이벤트를 받을 수 없다.
             // 대신 이미 추적 중인 커서 좌표가 창 안에 있는지로 판단한다.
             // 캐릭터는 창을 꽉 채우지 않으므로 가장자리를 조금 깎아 준다.
@@ -140,6 +148,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         monitor.onScroll = { [weak self] delta in
             self?.mascotView.scrolled(by: delta)
         }
+
+        face.onBlink = { [weak self] in
+            self?.mascotView.blinked()
+        }
+        face.onFailure = { [weak self] reason in
+            self?.cameraFailed(reason)
+        }
+
+        // 저장된 설정이 켜져 있으면 카메라도 같이 시작한다.
+        if UserDefaults.standard.bool(forKey: Key.camera) {
+            setCameraEnabled(true)
+        }
+    }
+
+    /// 캐릭터 얼굴에서 커서를 향하는 방향 (-1...1).
+    /// 이만큼 떨어지면 눈이 끝까지 돌아간다. 화면 반대편까지 가도 더는 안 돌아간다.
+    private static let gazeReach: CGFloat = 700
+
+    private func gazeDirection(toward cursor: CGPoint) -> CGPoint {
+        // 눈 사이 지점을 논리 캔버스에서 화면 좌표로 옮긴다.
+        let scale = window.frame.width / Layout.canvas.width
+        let face = CGPoint(x: window.frame.minX + Layout.faceCenter.x * scale,
+                           y: window.frame.minY + Layout.faceCenter.y * scale)
+
+        let dx = (cursor.x - face.x) / Self.gazeReach
+        let dy = (cursor.y - face.y) / Self.gazeReach
+        return CGPoint(x: min(1, max(-1, dx)), y: min(1, max(-1, dy)))
+    }
+
+    // MARK: - 카메라 (자세·눈 깜빡임)
+
+    private func setCameraEnabled(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: Key.camera)
+        if on {
+            face.start()
+        } else {
+            face.stop()
+        }
+        mascotView.cameraActive = on
+    }
+
+    private func cameraFailed(_ reason: String) {
+        UserDefaults.standard.set(false, forKey: Key.camera)
+        mascotView.cameraActive = false
+
+        let alert = NSAlert()
+        alert.messageText = "카메라를 쓸 수 없습니다"
+        alert.informativeText = """
+        \(reason)
+
+        눈 깜빡임 감지는 카메라 없이는 동작하지 않습니다.
+        나머지 기능은 그대로 씁니다.
+        """
+        alert.addButton(withTitle: "확인")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     // MARK: - 손쉬운 사용 권한
@@ -243,6 +307,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         lock.state = window.isLocked ? .on : .off
         menu.addItem(lock)
 
+        let camera = NSMenuItem(title: "Blink Detection (Camera)",
+                                action: #selector(toggleCamera), keyEquivalent: "")
+        camera.target = self
+        camera.state = mascotView.cameraActive ? .on : .off
+        menu.addItem(camera)
+
         let sizeItem = NSMenuItem(title: "Size", action: nil, keyEquivalent: "")
         let sizeMenu = NSMenu()
         for value in [0.6, 0.75, 1.0, 1.25, 1.5] {
@@ -271,7 +341,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         UserDefaults.standard.set(window.isLocked, forKey: Key.locked)
     }
 
-    @objc private func changeScale(_ sender: NSMenuItem) {
+    @objc private func toggleCamera() {
+        setCameraEnabled(!mascotView.cameraActive)
+    }
+
+@objc private func changeScale(_ sender: NSMenuItem) {
         guard let value = sender.representedObject as? Double else { return }
         applyScale(CGFloat(value))
     }

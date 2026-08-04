@@ -29,6 +29,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleName</key>                <string>Timmy</string>
     <key>CFBundleDisplayName</key>         <string>Timmy</string>
     <key>CFBundleIconFile</key>            <string>AppIcon</string>
+    <key>NSCameraUsageDescription</key>
+    <string>자세와 눈 깜빡임을 보고 캐릭터 표정에 반영합니다. 영상은 저장하거나 내보내지 않습니다.</string>
     <key>CFBundlePackageType</key>         <string>APPL</string>
     <key>CFBundleShortVersionString</key>  <string>1.0</string>
     <key>CFBundleVersion</key>             <string>1</string>

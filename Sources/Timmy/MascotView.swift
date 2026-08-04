@@ -38,6 +38,7 @@ final class MascotView: NSView {
                 mouseHoldUntil = CACurrentMediaTime() + minPressDuration
                 leaveKeyboard()
             }
+            noteActivity()
             kick()
         }
     }
@@ -75,6 +76,7 @@ final class MascotView: NSView {
     private func leaveKeyboard() {
         lastRightKeyTime = -10
         rightHoldUntil = 0
+        noteActivity()
     }
 
     // MARK: - 보간되는 실제 상태
@@ -120,12 +122,124 @@ final class MascotView: NSView {
     /// 이 시간이 지나거나, 그전에 마우스를 쓰면 마우스로 돌아간다.
     private let keyboardLinger: CFTimeInterval = 1.0
 
+    // MARK: - 표정
+
+    private var expression = Expression()
+
+    /// 최근에 키를 누른 시각들. 타이핑 속도를 재는 창.
+    private var keyTimes: [CFTimeInterval] = []
+    private let heatWindow: CFTimeInterval = 3.0
+    /// 초당 이만큼 아래로 치면 평온하고, 위로 치면 땀이 최대가 된다.
+    private let heatLowRate: CGFloat = 3.5
+    private let heatHighRate: CGFloat = 7.5
+
+    /// 시계에서 계산한 졸음 목표값. 1 분에 한 번만 갱신한다.
+    private var clockDrowsiness: CGFloat = 0
+    private var clockTimer: Timer?
+
+    /// 졸다가 눈을 감는 순간. 이 시각까지 눈꺼풀이 내려갔다 올라온다.
+    private var lidBlinkUntil: CFTimeInterval = 0
+    private let lidBlinkDuration: CFTimeInterval = 1.1
+    private var drowsyTimer: Timer?
+
     // MARK: - 초기화
 
     init() {
         super.init(frame: NSRect(origin: .zero, size: Layout.canvas))
         wantsLayer = true
         layer?.isOpaque = false
+
+        // 켤 때부터 새벽이면 처음부터 졸린 얼굴이어야 한다.
+        clockDrowsiness = Self.drowsinessForNow()
+        expression.drowsiness = clockDrowsiness
+        startClockTimer()
+        updateDrowsyTimer()
+    }
+
+    /// 카메라가 켜져 있는지. 꺼지면 눈은 기본 상태로 돌아간다.
+    var cameraActive = false {
+        didSet {
+            guard cameraActive != oldValue else { return }
+            if !cameraActive { lastBlinkAt = -1 }
+            kick()
+        }
+    }
+
+    /// 눈을 깜빡였다. 빨개진 흰자가 다시 하얘진다.
+    func blinked() {
+        lastBlinkAt = CACurrentMediaTime()
+        kick()
+    }
+
+    private var lastBlinkAt: CFTimeInterval = -1
+    /// 이만큼 안 깜빡이면 곧바로 완전히 빨개진다 (서서히 진행되는 게 아니라 계단식).
+    /// 사람은 평소 3~4 초에 한 번 깜빡이므로, 5 초면 이미 "눈을 부릅뜨고 있다"는
+    /// 신호로 보기에 충분하다.
+    private let dryDelay: CFTimeInterval = 5
+
+    /// 타이핑 속도를 재기 위해 키를 누른 시각을 기록한다.
+    func recordKeystroke() {
+        keyTimes.append(CACurrentMediaTime())
+        if keyTimes.count > 60 { keyTimes.removeFirst(keyTimes.count - 60) }
+        noteActivity()
+        kick()
+    }
+
+    /// 마지막으로 뭔가 한 시각.
+    private var lastActivityAt: CFTimeInterval = -100
+
+    private func noteActivity() {
+        lastActivityAt = CACurrentMediaTime()
+    }
+
+    /// 커서가 있는 방향. 캐릭터 얼굴에서 커서를 향하는 단위 벡터에 가깝다.
+    /// 값이 미세하게 흔들리는 것만으로 애니메이션을 깨우면 안 되므로 문턱을 둔다.
+    var cursorGaze = CGPoint.zero {
+        didSet {
+            if abs(cursorGaze.x - oldValue.x) > 0.02
+                || abs(cursorGaze.y - oldValue.y) > 0.02 { kick() }
+        }
+    }
+
+    /// 자정을 넘기면 졸리고, 새벽으로 갈수록 심해진다.
+    private static func drowsinessForNow() -> CGFloat {
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: Date())
+        guard let hour = parts.hour, let minute = parts.minute else { return 0 }
+        let t = CGFloat(hour) + CGFloat(minute) / 60
+        guard t < 5 else { return 0 }
+        return min(1, 0.55 + t * 0.22)
+    }
+
+    /// 자정을 넘겼는지 지켜본다. 1 분에 한 번이라 부담이 없다.
+    private func startClockTimer() {
+        let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let fresh = Self.drowsinessForNow()
+            guard abs(fresh - self.clockDrowsiness) > 0.001 else { return }
+            self.clockDrowsiness = fresh
+            self.updateDrowsyTimer()
+            self.kick()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        clockTimer = timer
+    }
+
+    /// 졸린 동안에만 주기적으로 눈을 감긴다.
+    /// 계속 60fps 로 돌리면 가만히 있어도 CPU 를 먹으므로, 몇 초에 한 번만 깨운다.
+    private func updateDrowsyTimer() {
+        let wanted = clockDrowsiness > 0.05
+        if wanted, drowsyTimer == nil {
+            let timer = Timer(timeInterval: 3.5, repeats: true) { [weak self] _ in
+                guard let self else { return }
+                self.lidBlinkUntil = CACurrentMediaTime() + self.lidBlinkDuration
+                self.kick()
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            drowsyTimer = timer
+        } else if !wanted {
+            drowsyTimer?.invalidate()
+            drowsyTimer = nil
+        }
     }
 
     @available(*, unavailable)
@@ -200,6 +314,56 @@ final class MascotView: NSView {
         moving = approach(&padPos.x, cursorNorm.x, 0.30) || moving
         moving = approach(&padPos.y, cursorNorm.y, 0.30) || moving
 
+        // 타이핑 속도 → 땀. 창을 벗어난 기록은 버린다.
+        while let oldest = keyTimes.first, now - oldest > heatWindow { keyTimes.removeFirst() }
+        let rate = CGFloat(keyTimes.count) / CGFloat(heatWindow)
+        let heatTarget = min(1, max(0, (rate - heatLowRate) / (heatHighRate - heatLowRate)))
+        moving = approach(&expression.heat, heatTarget, 0.08) || moving
+
+        if expression.heat > 0.02 {
+            expression.sweatPhase += 0.012
+            if expression.sweatPhase > 1 { expression.sweatPhase -= 1 }
+            moving = true
+        }
+
+        // 시계 → 졸음
+        moving = approach(&expression.drowsiness, clockDrowsiness, 0.05) || moving
+
+        // 카메라 → dryDelay 안에 안 깜빡이면 계단식으로 바로 빨개진다.
+        // 깜빡이면 목표가 0 이 되어 다시 빠르게 하얘진다.
+        let rednessTarget: CGFloat = (cameraActive && lastBlinkAt > 0
+                                      && now - lastBlinkAt >= dryDelay) ? 1 : 0
+        // 계단이라도 한 프레임에 뚝 끊기면 어색하니, 짧은 전환만 남긴다.
+        moving = approach(&expression.redness, rednessTarget, 0.35) || moving
+
+        // 눈동자는 타이핑 중이면 자판을, 그 외에는 커서를 본다.
+        let gazeTarget: CGPoint
+        if wantsKeyboard || holdingLeft {
+            // 자판을 내려다본다. 어느 손이 치는지에 따라 살짝 그쪽으로 쏠린다.
+            let side: CGFloat
+            if holdingLeft && !holdingRight { side = -0.45 }
+            else if holdingRight && !holdingLeft { side = 0.30 }
+            else { side = 0 }
+            gazeTarget = CGPoint(x: side, y: -0.85)
+        } else {
+            gazeTarget = cursorGaze
+        }
+        // 자판을 볼 때는 또렷하게 휙 돌아가고, 커서를 따라갈 때는 느리게 눌러서
+        // 마우스 떨림 같은 잡음이 그대로 눈에 옮겨붙지 않게 한다.
+        let gazeRate: CGFloat = (wantsKeyboard || holdingLeft) ? 0.18 : 0.08
+        moving = approach(&expression.gaze.x, gazeTarget.x, gazeRate) || moving
+        moving = approach(&expression.gaze.y, gazeTarget.y, gazeRate) || moving
+
+        // 졸다가 눈 감기. 감았다 뜨는 한 번이 sin 곡선 하나다.
+        let lidding = now < lidBlinkUntil
+        if lidding {
+            let t = 1 - CGFloat((lidBlinkUntil - now) / lidBlinkDuration)
+            expression.lidPhase = sin(t * .pi)
+            moving = true
+        } else {
+            moving = approach(&expression.lidPhase, 0, 0.25) || moving
+        }
+
         // 흐려지는 건 그림 내용과 무관하므로 다시 그리지 않고 레이어 투명도만 바꾼다.
         if approach(&hoverFade, cursorOverlaps ? 1 : 0, 0.20) {
             alphaValue = lerp(1, Self.hoverAlpha, hoverFade)
@@ -209,7 +373,9 @@ final class MascotView: NSView {
         if moving { needsDisplay = true }
 
         // 붙잡아 둔 시간이나 여운이 남아 있으면 계속 돌려야 한다.
-        if !moving && !lingering && !scrolling && !anyHold {
+        // 타이핑 기록이 남아 있으면 아직 땀이 마르지 않았다는 뜻이므로 계속 돌린다.
+        let sweating = !keyTimes.isEmpty || expression.heat > 0.02
+        if !moving && !lingering && !scrolling && !anyHold && !sweating && !lidding {
             sleepTicker()
         }
     }
@@ -245,7 +411,7 @@ final class MascotView: NSView {
         NSBezierPath(rect: NSRect(x: 0, y: Layout.deskTop,
                                   width: Layout.canvas.width,
                                   height: Layout.canvas.height - Layout.deskTop)).addClip()
-        mascot.drawUpperBody(in: ctx)
+        mascot.drawUpperBody(in: ctx, expression: expression)
         NSGraphicsContext.restoreGraphicsState()
 
         stage.drawDesk()
