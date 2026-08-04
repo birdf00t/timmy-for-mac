@@ -15,7 +15,7 @@ open Timmy.app
 ```
 
 Example:
-https://github.com/user-attachments/assets/44290209-2090-4677-8141-e857b0e092f4
+<img width="400" height="253" alt="method" src="https://github.com/user-attachments/assets/81055e70-fe3a-426e-b92e-72c5655e13d1" />
 
 Options:
 <img width="174" height="186" alt="option" src="https://github.com/user-attachments/assets/19a179e3-d524-46f2-a234-a2015ea214eb" />
