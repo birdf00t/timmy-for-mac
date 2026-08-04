@@ -1,0 +1,14 @@
+# 에디터용
+.swiftpm/
+.vscode/
+
+# 배포용
+*.dmg
+
+# 산출물
+*.app
+.build/
+Icon/AppIcon.iconset/
+
+# macOS
+.DS_Store
