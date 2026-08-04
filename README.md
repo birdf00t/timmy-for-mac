@@ -18,8 +18,13 @@ xattr -d com.apple.quarantine ~/Downloads/Timmy.dmg
 open Timmy.app
 ```
 
-<img width="400" height="253" alt="method" src="https://github.com/user-attachments/assets/81055e70-fe3a-426e-b92e-72c5655e13d1" />
+## Features
 
-<img width="182" height="186" alt="option" src="https://github.com/user-attachments/assets/18ead8b9-8bad-404e-825f-bd5ec44e78d5" />
+- Sweat that appears based on your typing speed
+- Sleepy eyes after midnight
+- Eye tracking that follows your cursor
+- Red eyes if you go too long without blinking (optional, camera)
+
+<img width="400" height="253" alt="method" src="https://github.com/user-attachments/assets/81055e70-fe3a-426e-b92e-72c5655e13d1" />
 
 
