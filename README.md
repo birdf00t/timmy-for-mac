@@ -7,6 +7,10 @@ Enable Lock Position so you can still click through Timmy.
 **Option 1 — Download the prebuilt app:**
 
 Grab the latest `.dmg` from [Releases](https://github.com/birdf00t/timmy-for-mac/releases).
+```bash
+xattr -d com.apple.quarantine Timmy.dmg
+```
+
 
 **Option 2 — Build from source:**
 ```bash
