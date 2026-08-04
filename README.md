@@ -16,5 +16,6 @@ open Timmy.app
 
 <img width="400" height="253" alt="method" src="https://github.com/user-attachments/assets/81055e70-fe3a-426e-b92e-72c5655e13d1" />
 
-<img width="174" height="186" alt="option" src="https://github.com/user-attachments/assets/19a179e3-d524-46f2-a234-a2015ea214eb" />
+<img width="182" height="186" alt="option" src="https://github.com/user-attachments/assets/18ead8b9-8bad-404e-825f-bd5ec44e78d5" />
+
 
