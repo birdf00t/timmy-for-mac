@@ -8,7 +8,7 @@ Enable Lock Position so you can still click through Timmy.
 
 Grab the latest `.dmg` from [Releases](https://github.com/birdf00t/timmy-for-mac/releases).
 ```bash
-xattr -d com.apple.quarantine Timmy.dmg
+xattr -d com.apple.quarantine Downloads/Timmy.dmg
 ```
 
 
