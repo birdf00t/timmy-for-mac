@@ -11,3 +11,4 @@ Grab the latest `.dmg` from [Releases](https://github.com/birdf00t/timmy-for-mac
 **Option 2 — Build from source:**
 ```bash
 ./build.sh
+open Timmy.app
